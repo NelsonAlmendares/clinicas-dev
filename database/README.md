@@ -1,0 +1,7 @@
+-- Mover scripts SQL fuera de src/ evita que Next.js los incluya
+-- en el análisis del bundle.
+-- Este archivo es solo un placeholder. Copiar aquí los archivos:
+--   clinica_dental.sql
+--   database.sql
+--   export.csv
+-- desde el directorio original src/db/
