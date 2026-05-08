@@ -35,8 +35,8 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const created = await createPaciente(parsed.data);
-    return NextResponse.json(created, { status: 201 });
+    await createPaciente(parsed.data);
+    return NextResponse.json({ ok: true }, { status: 201 });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Error al crear paciente";
     console.error("[POST /api/pacientes]", e);

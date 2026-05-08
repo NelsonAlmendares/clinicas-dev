@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Button, Card, Modal, Space, Table, Typography, Input, Avatar } from "antd";
+import { App, Avatar, Button, Card, Input, Space, Table, Typography } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import {
   DeleteOutlined,
@@ -12,6 +12,7 @@ import {
   TeamOutlined,
 } from "@ant-design/icons";
 import { usePacientes } from "../hooks/usePacientes";
+import { usePacientesStats } from "../hooks/usePacientesStats";
 import PacienteModal from "./PacienteModal";
 import type { Paciente, PacienteCreate, PacienteUpdate } from "@/types/paciente";
 
@@ -36,7 +37,9 @@ function avatarColor(id?: number) {
 }
 
 export default function PacientesView() {
+  const { modal } = App.useApp();
   const { items, loading, create, update, remove } = usePacientes();
+  const { stats, reload: reloadStats } = usePacientesStats();
 
   const [modalOpen, setModalOpen]     = useState(false);
   const [formLoading, setFormLoading] = useState(false);
@@ -53,17 +56,23 @@ export default function PacientesView() {
       ? await update(editing.id, values as PacienteUpdate)
       : await create(values as PacienteCreate);
     setFormLoading(false);
-    if (ok) handleClose();
+    if (ok) {
+      handleClose();
+      void reloadStats();
+    }
   };
 
   const handleDelete = (id: number, nombre: string) => {
-    Modal.confirm({
+    modal.confirm({
       title: "¿Eliminar paciente?",
       content: `Esta acción eliminará permanentemente a "${nombre}". No se puede deshacer.`,
       okText: "Eliminar",
       cancelText: "Cancelar",
       okType: "danger",
-      onOk: () => remove(id),
+      onOk: async () => {
+        const ok = await remove(id);
+        if (ok) void reloadStats();
+      },
     });
   };
 
@@ -201,9 +210,9 @@ export default function PacientesView() {
       {/* Stats */}
       <div style={{ display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>
         {[
-          { icon: <TeamOutlined />, label: "Total pacientes", value: items.length,                          color: "#6366f1", bg: "#eef2ff" },
-          { icon: <UserOutlined />, label: "Femenino",         value: items.filter(p => p.sexo === "F").length, color: "#9c2a6e", bg: "#fce8f4" },
-          { icon: <UserOutlined />, label: "Masculino",        value: items.filter(p => p.sexo === "M").length, color: "#1d6fa4", bg: "#e8f4fd" },
+          { icon: <TeamOutlined />, label: "Total pacientes", value: stats.total,     color: "#6366f1", bg: "#eef2ff" },
+          { icon: <UserOutlined />, label: "Femenino",        value: stats.femenino,  color: "#9c2a6e", bg: "#fce8f4" },
+          { icon: <UserOutlined />, label: "Masculino",       value: stats.masculino, color: "#1d6fa4", bg: "#e8f4fd" },
         ].map(({ icon, label, value, color, bg }) => (
           <div key={label} style={{
             display: "flex", alignItems: "center", gap: 10,

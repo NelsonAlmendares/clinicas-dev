@@ -44,8 +44,8 @@ export async function PUT(req: NextRequest, ctx: RouteContext) {
   }
 
   try {
-    const updated = await updatePaciente(id, parsed.data);
-    return NextResponse.json(updated);
+    await updatePaciente(id, parsed.data);
+    return NextResponse.json({ ok: true });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Error al actualizar paciente";
     console.error(`[PUT /api/pacientes/${id}]`, e);

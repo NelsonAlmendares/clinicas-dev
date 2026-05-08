@@ -19,5 +19,12 @@ export type Paciente = {
   fecha_registro?: string;
 };
 
+export type PacienteStats = {
+  total: number;
+  masculino: number;
+  femenino: number;
+  otro: number;
+};
+
 export type PacienteCreate = Omit<Paciente, "id" | "fecha_registro">;
 export type PacienteUpdate = Partial<PacienteCreate>;

@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "Bash(npx eslint *)",
+      "Bash(xxd \"src/app/api/pacientes/[id]/route.ts\")"
+    ]
+  }
+}

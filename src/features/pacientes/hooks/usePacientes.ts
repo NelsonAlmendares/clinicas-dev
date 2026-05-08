@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { message } from "antd";
+import { App } from "antd";
 import { apiFetch, ApiError } from "@/lib/api";
 import type { Paciente, PacienteCreate, PacienteUpdate } from "@/types/paciente";
 
@@ -15,6 +15,7 @@ interface UsePacientesReturn {
 }
 
 export function usePacientes(): UsePacientesReturn {
+  const { message } = App.useApp();
   const [items, setItems] = useState<Paciente[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -29,7 +30,7 @@ export function usePacientes(): UsePacientesReturn {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [message]);
 
   useEffect(() => {
     void reload();
@@ -49,7 +50,7 @@ export function usePacientes(): UsePacientesReturn {
       message.error(msg);
       return false;
     }
-  }, [reload]);
+  }, [reload, message]);
 
   const update = useCallback(async (id: number, dto: PacienteUpdate): Promise<boolean> => {
     try {
@@ -65,7 +66,7 @@ export function usePacientes(): UsePacientesReturn {
       message.error(msg);
       return false;
     }
-  }, [reload]);
+  }, [reload, message]);
 
   const remove = useCallback(async (id: number): Promise<boolean> => {
     try {
@@ -78,7 +79,7 @@ export function usePacientes(): UsePacientesReturn {
       message.error(msg);
       return false;
     }
-  }, [reload]);
+  }, [reload, message]);
 
   return { items, loading, reload, create, update, remove };
 }
