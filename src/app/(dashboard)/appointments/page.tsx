@@ -1,4 +1,8 @@
 import type { Metadata } from "next";
-import ComingSoon from "@/components/shared/ComingSoon";
+import AppointmentsView from "@/features/appointments/components/AppointmentsView";
+
 export const metadata: Metadata = { title: "Citas" };
-export default function Page() { return <ComingSoon title="Citas" />; }
+
+export default function AppointmentsPage() {
+  return <AppointmentsView />;
+}

@@ -47,10 +47,10 @@ export default function SideNav({ onNavigate }: SideNavProps) {
 
   return (
     <Menu
-      theme="dark"
       mode="inline"
       selectedKeys={[selectedKey]}
       items={items}
+      style={{ borderInlineEnd: 0, padding: "8px 12px" }}
     />
   );
 }
