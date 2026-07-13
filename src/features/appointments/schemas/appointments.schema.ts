@@ -1,18 +1,18 @@
 import { z } from "zod";
 
 /**
- * Schema canónico del paciente.
+ * Schema canónico de la cita.
  * Derivar todos los schemas de API (create / update) desde aquí.
  */
 export const appointmentBaseSchema = z.object({
-  paciente_id: z.string().optional(),
-  profesional_id: z.string().min(1, "El nombre es obligatorio"),
-  servicio_id: z.string().min(1, "El apellido es obligatorio"),
-  box_id: z.string().optional(),
-  fecha_hora: z.string().optional(),
-  estado: z.string().min(6, "Debe tener al menos 6 caracteres").optional(),
-  origen: z.string().optional(),
-  notas: z.string().email("Correo inválido").optional().or(z.literal("")),
+  paciente_id: z.number({ message: "Selecciona un paciente" }),
+  profesional_id: z.number({ message: "Selecciona un profesional" }),
+  servicio_id: z.number().optional(),
+  box_id: z.number().optional(),
+  fecha_hora: z.string().min(1, "La fecha y hora son obligatorias"),
+  estado: z.enum(["PROGRAMADA", "CONFIRMADA", "EN_SALA", "ATENDIDA", "NO_SHOW", "CANCELADA"]),
+  origen: z.enum(["WEB", "TEL", "WHATSAPP", "PRESENCIAL"]),
+  notas: z.string().optional(),
 });
 
 export const createAppointmentSchema = appointmentBaseSchema;

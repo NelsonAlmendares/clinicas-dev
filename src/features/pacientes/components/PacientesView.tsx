@@ -12,7 +12,6 @@ import {
   TeamOutlined,
 } from "@ant-design/icons";
 import { usePacientes } from "../hooks/usePacientes";
-import { usePacientesStats } from "../hooks/usePacientesStats";
 import PacienteModal from "./PacienteModal";
 import type { Paciente, PacienteCreate, PacienteUpdate } from "@/types/paciente";
 
@@ -38,8 +37,7 @@ function avatarColor(id?: number) {
 
 export default function PacientesView() {
   const { modal } = App.useApp();
-  const { items, loading, create, update, remove } = usePacientes();
-  const { stats, reload: reloadStats } = usePacientesStats();
+  const { items, loading, stats, create, update, remove } = usePacientes();
 
   const [modalOpen, setModalOpen]     = useState(false);
   const [formLoading, setFormLoading] = useState(false);
@@ -56,10 +54,7 @@ export default function PacientesView() {
       ? await update(editing.id, values as PacienteUpdate)
       : await create(values as PacienteCreate);
     setFormLoading(false);
-    if (ok) {
-      handleClose();
-      void reloadStats();
-    }
+    if (ok) handleClose();
   };
 
   const handleDelete = (id: number, nombre: string) => {
@@ -69,10 +64,7 @@ export default function PacientesView() {
       okText: "Eliminar",
       cancelText: "Cancelar",
       okType: "danger",
-      onOk: async () => {
-        const ok = await remove(id);
-        if (ok) void reloadStats();
-      },
+      onOk: async () => { await remove(id); },
     });
   };
 

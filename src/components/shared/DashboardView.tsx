@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   Avatar,
   Badge,
@@ -21,13 +22,12 @@ import {
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import {
-  BarChartOutlined,
   CalendarOutlined,
   ClockCircleOutlined,
   DollarOutlined,
-  MedicineBoxOutlined,
   PlusOutlined,
   SearchOutlined,
+  ShoppingCartOutlined,
   UserAddOutlined,
   UserOutlined,
 } from "@ant-design/icons";
@@ -43,6 +43,12 @@ import {
   Tooltip,
 } from "chart.js";
 import { Line } from "react-chartjs-2";
+import dayjs from "dayjs";
+import { INITIAL_APPOINTMENTS, PROFESIONALES, SERVICIOS, BOXES } from "@/features/appointments/data/mock-catalog";
+import { INITIAL_FACTURAS } from "@/features/invoices/data/mock-catalog";
+import { INITIAL_COMPRAS, PROVEEDORES } from "@/features/purchases/data/mock-catalog";
+import { INITIAL_PACIENTES } from "@/features/pacientes/data/mock-catalog";
+import type { Appointment, EstadoCita } from "@/types/appointments";
 
 ChartJS.register(
   CategoryScale,
@@ -57,27 +63,31 @@ ChartJS.register(
 
 const { Title: AntTitle, Text } = Typography;
 
-type AppointmentStatus = "pendiente" | "confirmada" | "cancelada";
-
-interface RecentAppointment {
-  id: string;
-  paciente_name: string;
-  fecha: string;
-  hora: string;
-  estado: AppointmentStatus;
+function money(v: number) {
+  return `Q ${v.toLocaleString("es-GT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-interface DashboardStats {
-  totalPatients: number;
-  todayAppointments: number;
-  pendingConsultations: number;
-  monthlyRevenue: number;
+function pacienteNombre(id: number) {
+  const p = INITIAL_PACIENTES.find((x) => x.id === id);
+  return p ? `${p.nombres} ${p.apellidos}` : "—";
 }
 
-interface WeeklyAppointment {
-  day: string;
-  citas: number;
+function profesionalNombre(id: number) {
+  return PROFESIONALES.find((p) => p.id === id)?.nombre ?? "—";
 }
+
+function proveedorNombre(id: number) {
+  return PROVEEDORES.find((p) => p.id === id)?.nombre ?? "—";
+}
+
+const ESTADO_TAG: Record<EstadoCita, { color: string; label: string }> = {
+  PROGRAMADA: { color: "blue",   label: "Programada" },
+  CONFIRMADA: { color: "green",  label: "Confirmada" },
+  EN_SALA:    { color: "purple", label: "En sala" },
+  ATENDIDA:   { color: "cyan",   label: "Atendida" },
+  NO_SHOW:    { color: "gold",   label: "No se presentó" },
+  CANCELADA:  { color: "red",    label: "Cancelada" },
+};
 
 interface ActivityItem {
   id: string;
@@ -87,11 +97,23 @@ interface ActivityItem {
   type: "success" | "processing" | "warning" | "error";
 }
 
+interface DashboardStats {
+  totalPatients: number;
+  proximasCitas: number;
+  facturasPendientes: number;
+  recaudado: number;
+}
+
+interface MonthlyRevenue {
+  mes: string;
+  monto: number;
+}
+
 interface OperationalStatus {
   activeDoctors: number;
-  availableRooms: number;
-  averageWaitingTime: number;
-  occupancyPercentage: number;
+  availableBoxes: number;
+  activeServices: number;
+  attendanceRate: number;
 }
 
 interface QuickAction {
@@ -99,59 +121,102 @@ interface QuickAction {
   title: string;
   description: string;
   icon: React.ReactNode;
+  href: string;
 }
 
 interface DashboardData {
   stats: DashboardStats;
-  weeklyAppointments: WeeklyAppointment[];
-  recentAppointments: RecentAppointment[];
+  monthlyRevenue: MonthlyRevenue[];
+  recentAppointments: Appointment[];
   activityFeed: ActivityItem[];
   operationalStatus: OperationalStatus;
   quickActions: QuickAction[];
 }
 
-const mockDashboardData: DashboardData = {
-  stats: {
-    totalPatients: 2847,
-    todayAppointments: 38,
-    pendingConsultations: 14,
-    monthlyRevenue: 18750,
-  },
-  weeklyAppointments: [
-    { day: "Lun", citas: 31 },
-    { day: "Mar", citas: 42 },
-    { day: "Mié", citas: 35 },
-    { day: "Jue", citas: 48 },
-    { day: "Vie", citas: 44 },
-    { day: "Sáb", citas: 27 },
-    { day: "Dom", citas: 18 },
-  ],
-  recentAppointments: [
-    { id: "APT-1001", paciente_name: "María Hernández", fecha: "2026-05-07", hora: "08:30", estado: "confirmada" },
-    { id: "APT-1002", paciente_name: "Carlos Mejía",    fecha: "2026-05-07", hora: "09:15", estado: "pendiente" },
-    { id: "APT-1003", paciente_name: "Ana Rodríguez",   fecha: "2026-05-07", hora: "10:00", estado: "confirmada" },
-    { id: "APT-1004", paciente_name: "José Martínez",   fecha: "2026-05-07", hora: "11:30", estado: "cancelada" },
-    { id: "APT-1005", paciente_name: "Sofía Castillo",  fecha: "2026-05-07", hora: "14:00", estado: "pendiente" },
-  ],
-  activityFeed: [
-    { id: "ACT-001", title: "Cita confirmada",    description: "María Hernández confirmó su cita de medicina general.", time: "Hace 8 min",  type: "success" },
-    { id: "ACT-002", title: "Paciente registrado", description: "Se creó el expediente clínico de Roberto Flores.",     time: "Hace 22 min", type: "processing" },
-    { id: "ACT-003", title: "Consulta finalizada", description: "Dra. Morales cerró una consulta pediátrica.",            time: "Hace 36 min", type: "success" },
-    { id: "ACT-004", title: "Cita cancelada",      description: "José Martínez canceló su cita programada.",              time: "Hace 1 h",    type: "error" },
-  ],
-  operationalStatus: {
-    activeDoctors: 9,
-    availableRooms: 5,
-    averageWaitingTime: 18,
-    occupancyPercentage: 72,
-  },
-  quickActions: [
-    { id: "QA-001", title: "Registrar Paciente", description: "Crear expediente clínico", icon: <UserAddOutlined /> },
-    { id: "QA-002", title: "Crear Cita",         description: "Agendar nueva atención",   icon: <CalendarOutlined /> },
-    { id: "QA-003", title: "Nueva Consulta",     description: "Iniciar atención médica",  icon: <MedicineBoxOutlined /> },
-    { id: "QA-004", title: "Ver Reportes",       description: "Indicadores clínicos",     icon: <BarChartOutlined /> },
-  ],
-};
+const MESES = ["Sep", "Oct", "Nov", "Dic"];
+
+function buildDashboardData(): DashboardData {
+  const totalPatients = INITIAL_PACIENTES.length;
+  const proximasCitas = INITIAL_APPOINTMENTS.filter(
+    (c) => c.estado === "PROGRAMADA" || c.estado === "CONFIRMADA"
+  ).length;
+  const facturasPendientes = INITIAL_FACTURAS.filter((f) => f.estado === "PENDIENTE").length;
+  const recaudado = INITIAL_FACTURAS
+    .filter((f) => f.estado === "PAGADA")
+    .reduce((s, f) => s + f.total + f.iva, 0);
+
+  const monthlyRevenue: MonthlyRevenue[] = MESES.map((mes, idx) => {
+    const monthNum = String(idx + 9).padStart(2, "0"); // 09..12
+    const monto = INITIAL_FACTURAS
+      .filter((f) => f.estado !== "ANULADA" && f.fecha?.slice(5, 7) === monthNum)
+      .reduce((s, f) => s + f.total + f.iva, 0);
+    return { mes, monto };
+  });
+
+  const recentAppointments = [...INITIAL_APPOINTMENTS]
+    .sort((a, b) => b.fecha_hora.localeCompare(a.fecha_hora))
+    .slice(0, 5);
+
+  const citaActivity: ActivityItem[] = [...INITIAL_APPOINTMENTS]
+    .sort((a, b) => b.fecha_hora.localeCompare(a.fecha_hora))
+    .slice(0, 2)
+    .map((c) => ({
+      id: `cita-${c.id}`,
+      title: c.estado === "CANCELADA" || c.estado === "NO_SHOW" ? "Cita cancelada" : c.estado === "ATENDIDA" ? "Cita atendida" : "Cita confirmada",
+      description: `${pacienteNombre(c.paciente_id)} con ${profesionalNombre(c.profesional_id)}`,
+      time: dayjs(c.fecha_hora).format("DD/MM HH:mm"),
+      type: c.estado === "CANCELADA" || c.estado === "NO_SHOW" ? "error" : c.estado === "ATENDIDA" ? "success" : "processing",
+    }));
+
+  const pagoActivity: ActivityItem[] = INITIAL_FACTURAS
+    .flatMap((f) => f.pagos.map((p) => ({ f, p })))
+    .sort((a, b) => (b.p.fecha ?? "").localeCompare(a.p.fecha ?? ""))
+    .slice(0, 1)
+    .map(({ f, p }) => ({
+      id: `pago-${p.id}`,
+      title: "Pago registrado",
+      description: `Factura de ${pacienteNombre(f.paciente_id)} — ${money(p.monto)}`,
+      time: p.fecha ?? "",
+      type: "success",
+    }));
+
+  const compraActivity: ActivityItem[] = [...INITIAL_COMPRAS]
+    .sort((a, b) => (b.fecha ?? "").localeCompare(a.fecha ?? ""))
+    .slice(0, 1)
+    .map((c) => ({
+      id: `compra-${c.id}`,
+      title: "Compra registrada",
+      description: `${proveedorNombre(c.proveedor_id)} — ${money(c.total)}`,
+      time: c.fecha ?? "",
+      type: "processing",
+    }));
+
+  const activityFeed = [...citaActivity, ...pagoActivity, ...compraActivity];
+
+  const canceladas = INITIAL_APPOINTMENTS.filter((c) => c.estado === "CANCELADA" || c.estado === "NO_SHOW").length;
+  const attendanceRate = INITIAL_APPOINTMENTS.length
+    ? Math.round(((INITIAL_APPOINTMENTS.length - canceladas) / INITIAL_APPOINTMENTS.length) * 100)
+    : 0;
+
+  return {
+    stats: { totalPatients, proximasCitas, facturasPendientes, recaudado },
+    monthlyRevenue,
+    recentAppointments,
+    activityFeed,
+    operationalStatus: {
+      activeDoctors: PROFESIONALES.length,
+      availableBoxes: BOXES.length,
+      activeServices: SERVICIOS.length,
+      attendanceRate,
+    },
+    quickActions: [
+      { id: "QA-001", title: "Registrar paciente", description: "Crear expediente clínico", icon: <UserAddOutlined />, href: "/pacientes" },
+      { id: "QA-002", title: "Agendar cita",        description: "Nueva atención",           icon: <CalendarOutlined />, href: "/appointments" },
+      { id: "QA-003", title: "Facturar",            description: "Cobros y pagos",           icon: <DollarOutlined />, href: "/invoices" },
+      { id: "QA-004", title: "Registrar compra",    description: "Inventario y proveedores", icon: <ShoppingCartOutlined />, href: "/purchases" },
+    ],
+  };
+}
 
 function useDashboard(): { data: DashboardData | null; loading: boolean } {
   const [data, setData] = useState<DashboardData | null>(null);
@@ -159,7 +224,7 @@ function useDashboard(): { data: DashboardData | null; loading: boolean } {
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      setData(mockDashboardData);
+      setData(buildDashboardData());
       setLoading(false);
     }, 650);
 
@@ -168,12 +233,6 @@ function useDashboard(): { data: DashboardData | null; loading: boolean } {
 
   return { data, loading };
 }
-
-const statusConfig: Record<AppointmentStatus, { color: string; label: string }> = {
-  pendiente:  { color: "orange", label: "Pendiente" },
-  confirmada: { color: "green",  label: "Confirmada" },
-  cancelada:  { color: "red",    label: "Cancelada" },
-};
 
 const activityStatusColor: Record<ActivityItem["type"], string> = {
   success:    "green",
@@ -241,28 +300,35 @@ export default function DashboardView() {
   const { data, loading } = useDashboard();
   const [hoveredAction, setHoveredAction] = useState<string | null>(null);
 
-  const columns: ColumnsType<RecentAppointment> = [
+  const columns: ColumnsType<Appointment> = [
     {
       title: "Paciente",
-      dataIndex: "paciente_name",
-      key: "paciente_name",
-      render: (value: string) => (
+      key: "paciente",
+      render: (_, r) => (
         <Space>
           <Avatar size={32} icon={<UserOutlined />} style={{ background: "#eaf3ff", color: "#1677ff" }} />
-          <Text strong>{value}</Text>
+          <Text strong>{pacienteNombre(r.paciente_id)}</Text>
         </Space>
       ),
     },
-    { title: "Fecha", dataIndex: "fecha", key: "fecha", responsive: ["sm"] },
-    { title: "Hora",  dataIndex: "hora",  key: "hora",  width: 110 },
+    {
+      title: "Profesional",
+      key: "profesional",
+      responsive: ["sm"],
+      render: (_, r) => profesionalNombre(r.profesional_id),
+    },
+    {
+      title: "Fecha", key: "fecha", width: 150,
+      render: (_, r) => `${dayjs(r.fecha_hora).format("DD/MM/YYYY")} · ${dayjs(r.fecha_hora).format("HH:mm")}`,
+    },
     {
       title: "Estado",
       dataIndex: "estado",
       key: "estado",
       width: 140,
-      render: (status: AppointmentStatus) => (
-        <Tag color={statusConfig[status].color} style={{ borderRadius: 999, padding: "2px 10px" }}>
-          {statusConfig[status].label}
+      render: (status: EstadoCita) => (
+        <Tag color={ESTADO_TAG[status].color} style={{ borderRadius: 999, padding: "2px 10px" }}>
+          {ESTADO_TAG[status].label}
         </Tag>
       ),
     },
@@ -270,11 +336,11 @@ export default function DashboardView() {
 
   const chartData = useMemo(
     () => ({
-      labels: data?.weeklyAppointments.map((item) => item.day) ?? [],
+      labels: data?.monthlyRevenue.map((item) => item.mes) ?? [],
       datasets: [
         {
-          label: "Citas",
-          data: data?.weeklyAppointments.map((item) => item.citas) ?? [],
+          label: "Facturación",
+          data: data?.monthlyRevenue.map((item) => item.monto) ?? [],
           borderColor: "#1677ff",
           backgroundColor: "rgba(22, 119, 255, 0.12)",
           pointBackgroundColor: "#1677ff",
@@ -299,6 +365,9 @@ export default function DashboardView() {
           backgroundColor: "rgba(15, 23, 42, 0.92)",
           padding: 12,
           cornerRadius: 10,
+          callbacks: {
+            label: (ctx: { parsed: { y: number | null } }) => money(ctx.parsed.y ?? 0),
+          },
         },
       },
       scales: {
@@ -309,7 +378,7 @@ export default function DashboardView() {
         y: {
           beginAtZero: true,
           grid: { color: "rgba(148, 163, 184, 0.18)" },
-          ticks: { color: "#64748b", precision: 0 },
+          ticks: { color: "#64748b", callback: (v: string | number) => money(Number(v)) },
         },
       },
     }),
@@ -333,9 +402,11 @@ export default function DashboardView() {
             placeholder="Buscar paciente, cita o expediente..."
             style={styles.search}
           />
-          <Button type="primary" icon={<PlusOutlined />} size="large">
-            Nueva Cita
-          </Button>
+          <Link href="/appointments">
+            <Button type="primary" icon={<PlusOutlined />} size="large">
+              Nueva Cita
+            </Button>
+          </Link>
         </Space>
       </header>
 
@@ -346,7 +417,7 @@ export default function DashboardView() {
               <Skeleton active paragraph={{ rows: 1 }} />
             ) : (
               <Space align="start" style={{ width: "100%", justifyContent: "space-between" }}>
-                <Statistic title="Pacientes Totales" value={data?.stats.totalPatients} />
+                <Statistic title="Pacientes totales" value={data?.stats.totalPatients} />
                 <div style={styles.statIcon}><UserOutlined /></div>
               </Space>
             )}
@@ -359,7 +430,7 @@ export default function DashboardView() {
               <Skeleton active paragraph={{ rows: 1 }} />
             ) : (
               <Space align="start" style={{ width: "100%", justifyContent: "space-between" }}>
-                <Statistic title="Citas Hoy" value={data?.stats.todayAppointments} />
+                <Statistic title="Citas próximas" value={data?.stats.proximasCitas} />
                 <div style={styles.statIcon}><CalendarOutlined /></div>
               </Space>
             )}
@@ -372,7 +443,7 @@ export default function DashboardView() {
               <Skeleton active paragraph={{ rows: 1 }} />
             ) : (
               <Space align="start" style={{ width: "100%", justifyContent: "space-between" }}>
-                <Statistic title="Consultas Pendientes" value={data?.stats.pendingConsultations} />
+                <Statistic title="Facturas pendientes" value={data?.stats.facturasPendientes} />
                 <div style={styles.statIcon}><ClockCircleOutlined /></div>
               </Space>
             )}
@@ -386,10 +457,9 @@ export default function DashboardView() {
             ) : (
               <Space align="start" style={{ width: "100%", justifyContent: "space-between" }}>
                 <Statistic
-                  title="Ingresos del Mes"
-                  value={data?.stats.monthlyRevenue}
-                  prefix="$"
-                  precision={0}
+                  title="Recaudado"
+                  value={data?.stats.recaudado}
+                  formatter={(v) => money(Number(v))}
                 />
                 <div style={styles.statIcon}><DollarOutlined /></div>
               </Space>
@@ -400,8 +470,8 @@ export default function DashboardView() {
         <Col xs={24} xl={17}>
           <Space direction="vertical" size={18} style={{ width: "100%" }}>
             <Card
-              title="Resumen de la Semana"
-              extra={<Tag color="blue">Últimos 7 días</Tag>}
+              title="Facturación mensual"
+              extra={<Tag color="blue">Sep – Dic 2025</Tag>}
               style={styles.card}
               bordered={false}
             >
@@ -414,48 +484,50 @@ export default function DashboardView() {
               )}
             </Card>
 
-            <Card title="Accesos Rápidos" style={styles.card} bordered={false}>
+            <Card title="Accesos rápidos" style={styles.card} bordered={false}>
               {loading ? (
                 <Skeleton active paragraph={{ rows: 3 }} />
               ) : (
                 <Row gutter={[14, 14]}>
                   {data?.quickActions.map((action) => (
                     <Col xs={24} sm={12} lg={6} key={action.id}>
-                      <Card
-                        bordered={false}
-                        style={{
-                          ...styles.quickCard,
-                          transform: hoveredAction === action.id ? "translateY(-4px)" : "translateY(0)",
-                          boxShadow:
-                            hoveredAction === action.id
-                              ? "0 16px 34px rgba(22, 119, 255, 0.12)"
-                              : "0 8px 22px rgba(15, 23, 42, 0.04)",
-                          borderColor: hoveredAction === action.id ? "#bfdbfe" : "#edf0f5",
-                        }}
-                        onMouseEnter={() => setHoveredAction(action.id)}
-                        onMouseLeave={() => setHoveredAction(null)}
-                      >
-                        <Space direction="vertical" size={12}>
-                          <div style={styles.quickIcon}>{action.icon}</div>
-                          <div>
-                            <Text strong style={{ color: "#0f172a" }}>
-                              {action.title}
-                            </Text>
-                            <br />
-                            <Text type="secondary" style={{ fontSize: 12 }}>
-                              {action.description}
-                            </Text>
-                          </div>
-                        </Space>
-                      </Card>
+                      <Link href={action.href}>
+                        <Card
+                          bordered={false}
+                          style={{
+                            ...styles.quickCard,
+                            transform: hoveredAction === action.id ? "translateY(-4px)" : "translateY(0)",
+                            boxShadow:
+                              hoveredAction === action.id
+                                ? "0 16px 34px rgba(22, 119, 255, 0.12)"
+                                : "0 8px 22px rgba(15, 23, 42, 0.04)",
+                            borderColor: hoveredAction === action.id ? "#bfdbfe" : "#edf0f5",
+                          }}
+                          onMouseEnter={() => setHoveredAction(action.id)}
+                          onMouseLeave={() => setHoveredAction(null)}
+                        >
+                          <Space direction="vertical" size={12}>
+                            <div style={styles.quickIcon}>{action.icon}</div>
+                            <div>
+                              <Text strong style={{ color: "#0f172a" }}>
+                                {action.title}
+                              </Text>
+                              <br />
+                              <Text type="secondary" style={{ fontSize: 12 }}>
+                                {action.description}
+                              </Text>
+                            </div>
+                          </Space>
+                        </Card>
+                      </Link>
                     </Col>
                   ))}
                 </Row>
               )}
             </Card>
 
-            <Card title="Actividad de Citas Recientes" style={styles.card} bordered={false}>
-              <Table<RecentAppointment>
+            <Card title="Próximas citas" style={styles.card} bordered={false}>
+              <Table<Appointment>
                 rowKey="id"
                 columns={columns}
                 dataSource={data?.recentAppointments ?? []}
@@ -469,7 +541,7 @@ export default function DashboardView() {
 
         <Col xs={24} xl={7}>
           <aside style={styles.rightPanel}>
-            <Card title="Actividad Reciente" style={styles.card} bordered={false}>
+            <Card title="Actividad reciente" style={styles.card} bordered={false}>
               {loading ? (
                 <Skeleton active avatar paragraph={{ rows: 5 }} />
               ) : (
@@ -498,7 +570,7 @@ export default function DashboardView() {
               )}
             </Card>
 
-            <Card title="Estado Operativo" style={styles.card} bordered={false}>
+            <Card title="Estado operativo" style={styles.card} bordered={false}>
               {loading ? (
                 <Skeleton active paragraph={{ rows: 6 }} />
               ) : (
@@ -506,15 +578,15 @@ export default function DashboardView() {
                   <Row gutter={[12, 12]}>
                     <Col span={12}>
                       <Statistic
-                        title="Médicos activos"
+                        title="Profesionales activos"
                         value={data?.operationalStatus.activeDoctors}
                         valueStyle={{ fontSize: 22 }}
                       />
                     </Col>
                     <Col span={12}>
                       <Statistic
-                        title="Salas disponibles"
-                        value={data?.operationalStatus.availableRooms}
+                        title="Boxes disponibles"
+                        value={data?.operationalStatus.availableBoxes}
                         valueStyle={{ fontSize: 22 }}
                       />
                     </Col>
@@ -523,19 +595,18 @@ export default function DashboardView() {
                   <Divider style={{ margin: "4px 0" }} />
 
                   <Statistic
-                    title="Tiempo promedio de espera"
-                    value={data?.operationalStatus.averageWaitingTime}
-                    suffix="min"
+                    title="Servicios activos"
+                    value={data?.operationalStatus.activeServices}
                     valueStyle={{ fontSize: 24 }}
                   />
 
                   <div>
                     <Space style={{ width: "100%", justifyContent: "space-between", marginBottom: 8 }}>
-                      <Text type="secondary">Ocupación clínica</Text>
-                      <Text strong>{data?.operationalStatus.occupancyPercentage}%</Text>
+                      <Text type="secondary">Tasa de asistencia</Text>
+                      <Text strong>{data?.operationalStatus.attendanceRate}%</Text>
                     </Space>
                     <Progress
-                      percent={data?.operationalStatus.occupancyPercentage}
+                      percent={data?.operationalStatus.attendanceRate}
                       showInfo={false}
                       strokeColor="#1677ff"
                       trailColor="#e8eef7"

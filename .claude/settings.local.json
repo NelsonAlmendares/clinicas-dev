@@ -3,7 +3,27 @@
     "allow": [
       "Bash(npm run *)",
       "Bash(npx eslint *)",
-      "Bash(xxd \"src/app/api/pacientes/[id]/route.ts\")"
+      "Bash(xxd \"src/app/api/pacientes/[id]/route.ts\")",
+      "Skill(run)",
+      "Bash(timeout 45 bash -c 'until curl -sf http://localhost:3000 >/dev/null; do sleep 1; done')",
+      "Read(//tmp/**)",
+      "Bash(chromium-cli --session compras)",
+      "Read(//c/Program Files/Google/Chrome/Application/**)",
+      "Read(//c/Program Files \\\\\\(x86\\\\\\)/Google/Chrome/Application/**)",
+      "Read(//c/Program Files/Microsoft/Edge/Application/**)",
+      "Bash(mkdir -p /c/Users/Nelson/AppData/Local/Temp/claude/C--Users-Nelson-Desktop-NextLink-code-clinicas-v2/2b11cc43-1423-4004-b8ff-3671d156b1d8/scratchpad)",
+      "Read(//c/Users/Nelson/AppData/Local/Temp/claude/C--Users-Nelson-Desktop-NextLink-code-clinicas-v2/2b11cc43-1423-4004-b8ff-3671d156b1d8/**)",
+      "Bash(npm init *)",
+      "Bash(npm install *)",
+      "Bash(node shot.js)",
+      "Bash(pkill -f \"next dev\")",
+      "Bash(pkill -f \"next-server\")",
+      "Bash(node shot-invoices.js)",
+      "Bash(node -e \"const i=require\\('@ant-design/icons'\\); console.log\\(!!i.WhatsAppOutlined, !!i.PhoneOutlined, !!i.GlobalOutlined, !!i.ShopOutlined, !!i.MessageOutlined\\)\")",
+      "Bash(node shot-appointments.js)",
+      "Bash(timeout 30 bash -c 'until curl -sf http://localhost:3004 >/dev/null; do sleep 1; done')",
+      "Bash(node shot-pacientes.js)",
+      "Bash(node shot-dash2.js)"
     ]
   }
 }

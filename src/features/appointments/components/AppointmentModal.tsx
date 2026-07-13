@@ -14,6 +14,7 @@ import {
 import { SaveOutlined, PlusOutlined, CloseOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import type { Appointment, AppointmentCreate, AppointmentUpdate } from "@/types/appointments";
+import { PACIENTES, PROFESIONALES, SERVICIOS, BOXES } from "../data/mock-catalog";
 
 const { Item } = Form;
 const { TextArea } = Input;
@@ -21,7 +22,7 @@ const { Option } = Select;
 
 interface AppointmentModalProps {
   open: boolean;
-  appointment: Appointment | null;   // null → modo creación
+  appointment: Appointment | null; // null → modo creación
   loading: boolean;
   onSubmit: (values: AppointmentCreate | AppointmentUpdate) => Promise<void>;
   onCancel: () => void;
@@ -47,6 +48,7 @@ export default function AppointmentModal({
       });
     } else if (open) {
       form.resetFields();
+      form.setFieldsValue({ estado: "PROGRAMADA", origen: "TEL" } as never);
     }
   }, [open, appointment, form]);
 
@@ -54,11 +56,9 @@ export default function AppointmentModal({
     const values = await form.validateFields();
     const payload = {
       ...values,
-      fecha_nacimiento:
-        values.fecha_hora
-          ? dayjs(values.fecha_hora as unknown as dayjs.Dayjs).format("YYYY-MM-DD")
-          : undefined,
-      // Limpiar string vacío en email para no enviar "" a la API
+      fecha_hora: values.fecha_hora
+        ? dayjs(values.fecha_hora as unknown as dayjs.Dayjs).format("YYYY-MM-DDTHH:mm:ss")
+        : undefined,
       notas: values.notas || undefined,
     };
     await onSubmit(payload);
@@ -68,7 +68,7 @@ export default function AppointmentModal({
     <Modal
       title={isEditing ? "Editar cita" : "Nueva cita"}
       open={open}
-      width={820}
+      width={780}
       onCancel={onCancel}
       maskClosable={false}
       footer={[
@@ -82,101 +82,104 @@ export default function AppointmentModal({
           icon={isEditing ? <SaveOutlined /> : <PlusOutlined />}
           onClick={handleOk}
         >
-          {isEditing ? "Guardar cambios" : "Crear paciente"}
+          {isEditing ? "Guardar cambios" : "Crear cita"}
         </Button>,
       ]}
     >
       <Form form={form} layout="vertical" requiredMark="optional">
         <Row gutter={16}>
-          <Col span={8}>
-            <Item label="Historia" name="historia">
-              <Input placeholder="Nº de historia clínica" />
+          <Col span={12}>
+            <Item
+              label="Paciente"
+              name="paciente_id"
+              rules={[{ required: true, message: "Selecciona un paciente" }]}
+            >
+              <Select placeholder="Selecciona un paciente" showSearch optionFilterProp="children">
+                {PACIENTES.map((p) => (
+                  <Option key={p.id} value={p.id}>{p.nombres} {p.apellidos}</Option>
+                ))}
+              </Select>
             </Item>
           </Col>
-          <Col span={8}>
+          <Col span={12}>
             <Item
-              label="Nombres"
-              name="nombres"
-              rules={[{ required: true, message: "El nombre es obligatorio" }]}
+              label="Profesional"
+              name="profesional_id"
+              rules={[{ required: true, message: "Selecciona un profesional" }]}
             >
-              <Input placeholder="Nombres" />
-            </Item>
-          </Col>
-          <Col span={8}>
-            <Item
-              label="Apellidos"
-              name="apellidos"
-              rules={[{ required: true, message: "El apellido es obligatorio" }]}
-            >
-              <Input placeholder="Apellidos" />
+              <Select placeholder="Selecciona un profesional" showSearch optionFilterProp="children">
+                {PROFESIONALES.map((p) => (
+                  <Option key={p.id} value={p.id}>{p.nombre}</Option>
+                ))}
+              </Select>
             </Item>
           </Col>
         </Row>
 
         <Row gutter={16}>
           <Col span={8}>
-            <Item label="Fecha de nacimiento" name="fecha_nacimiento">
-              <DatePicker style={{ width: "100%" }} format="YYYY-MM-DD" placeholder="Seleccione" />
-            </Item>
-          </Col>
-          <Col span={8}>
-            <Item label="Sexo" name="sexo">
-              <Select placeholder="Seleccione">
-                <Option value="M">Masculino</Option>
-                <Option value="F">Femenino</Option>
-                <Option value="O">Otro</Option>
+            <Item label="Servicio" name="servicio_id">
+              <Select placeholder="Selecciona un servicio" allowClear showSearch optionFilterProp="children">
+                {SERVICIOS.map((s) => (
+                  <Option key={s.id} value={s.id}>{s.nombre}</Option>
+                ))}
               </Select>
             </Item>
           </Col>
           <Col span={8}>
-            <Item label="DPI / NIT" name="dpi_nit">
-              <Input placeholder="DPI o NIT" />
-            </Item>
-          </Col>
-        </Row>
-
-        <Row gutter={16}>
-          <Col span={8}>
-            <Item label="Teléfono" name="telefono">
-              <Input placeholder="Teléfono" />
+            <Item label="Box" name="box_id">
+              <Select placeholder="Selecciona un box" allowClear>
+                {BOXES.map((b) => (
+                  <Option key={b.id} value={b.id}>{b.nombre}</Option>
+                ))}
+              </Select>
             </Item>
           </Col>
           <Col span={8}>
             <Item
-              label="Email"
-              name="email"
-              rules={[{ type: "email", message: "Correo inválido" }]}
+              label="Fecha y hora"
+              name="fecha_hora"
+              rules={[{ required: true, message: "La fecha y hora son obligatorias" }]}
             >
-              <Input placeholder="correo@ejemplo.com" />
+              <DatePicker
+                showTime={{ format: "HH:mm" }}
+                format="YYYY-MM-DD HH:mm"
+                style={{ width: "100%" }}
+                placeholder="Seleccione"
+              />
             </Item>
           </Col>
-          <Col span={8}>
-            <Item label="Contacto de emergencia" name="contacto_emergencia">
-              <Input placeholder="Nombre y teléfono" />
+        </Row>
+
+        <Row gutter={16}>
+          <Col span={12}>
+            <Item label="Estado" name="estado" rules={[{ required: true, message: "Selecciona un estado" }]}>
+              <Select>
+                <Option value="PROGRAMADA">Programada</Option>
+                <Option value="CONFIRMADA">Confirmada</Option>
+                <Option value="EN_SALA">En sala</Option>
+                <Option value="ATENDIDA">Atendida</Option>
+                <Option value="NO_SHOW">No se presentó</Option>
+                <Option value="CANCELADA">Cancelada</Option>
+              </Select>
+            </Item>
+          </Col>
+          <Col span={12}>
+            <Item label="Origen" name="origen" rules={[{ required: true, message: "Selecciona un origen" }]}>
+              <Select>
+                <Option value="WEB">Web</Option>
+                <Option value="TEL">Teléfono</Option>
+                <Option value="WHATSAPP">WhatsApp</Option>
+                <Option value="PRESENCIAL">Presencial</Option>
+              </Select>
             </Item>
           </Col>
         </Row>
 
         <Row gutter={16}>
           <Col span={24}>
-            <Item label="Alergias" name="alergias">
-              <TextArea rows={2} placeholder="Alergias conocidas" />
-            </Item>
-          </Col>
-        </Row>
-
-        <Row gutter={16}>
-          <Col span={24}>
-            <Item label="Antecedentes médicos" name="antecedentes">
-              <TextArea rows={2} placeholder="Antecedentes relevantes" />
-            </Item>
-          </Col>
-        </Row>
-
-        <Row gutter={16}>
-          <Col span={24}>
-            <Item label="Medicamentos actuales" name="medicamentos">
-              <TextArea rows={2} placeholder="Medicamentos que toma actualmente" />
+            <Item label="Notas" name="notas">
+              <TextArea rows={2} placeholder="Observaciones de la cita" />
             </Item>
           </Col>
         </Row>

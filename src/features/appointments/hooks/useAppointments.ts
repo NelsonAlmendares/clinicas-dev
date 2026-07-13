@@ -1,85 +1,66 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { App } from "antd";
-import { apiFetch, ApiError } from "@/lib/api";
-import type { Appointment, AppointmentCreate, AppointmentUpdate } from "@/types/appointments";
+import type { Appointment, AppointmentCreate, AppointmentStats, AppointmentUpdate } from "@/types/appointments";
+import { INITIAL_APPOINTMENTS } from "../data/mock-catalog";
 
-interface UseAppointmentReturn {
+interface UseAppointmentsReturn {
   items: Appointment[];
   loading: boolean;
-  reload: () => Promise<void>;
+  stats: AppointmentStats;
   create: (dto: AppointmentCreate) => Promise<boolean>;
   update: (id: number, dto: AppointmentUpdate) => Promise<boolean>;
   remove: (id: number) => Promise<boolean>;
 }
 
-export function useAppointment(): UseAppointmentReturn {
+/**
+ * CRUD simulado en memoria — el servicio ORDS está apagado.
+ * Mismo contrato que usePacientes/useCompras/useFacturas para mantener el
+ * patrón de la referencia; cuando el backend vuelva, basta con reemplazar
+ * el cuerpo por apiFetch.
+ */
+export function useAppointments(): UseAppointmentsReturn {
   const { message } = App.useApp();
-  const [items, setItems] = useState<Appointment[]>([]);
+  const [items, setItems] = useState<Appointment[]>(INITIAL_APPOINTMENTS);
   const [loading, setLoading] = useState(false);
 
-  const reload = useCallback(async () => {
+  const create = useCallback(async (dto: AppointmentCreate): Promise<boolean> => {
     setLoading(true);
-    try {
-      const data = await apiFetch<{ items: Appointment[] }>("/api/pacientes");
-      setItems(data.items ?? []);
-    } catch (e) {
-      const msg = e instanceof ApiError ? e.message : "Error al cargar citas";
-      message.error(msg);
-    } finally {
-      setLoading(false);
-    }
+    await new Promise((r) => setTimeout(r, 350));
+    setItems((prev) => {
+      const nextId = Math.max(0, ...prev.map((c) => c.id ?? 0)) + 1;
+      return [{ ...dto, id: nextId }, ...prev];
+    });
+    setLoading(false);
+    message.success("Cita creada correctamente");
+    return true;
   }, [message]);
 
-  useEffect(() => {
-    void reload();
-  }, [reload]);
-
-  const create = useCallback(async (dto: AppointmentCreate): Promise<boolean> => {
-    try {
-      await apiFetch("/api/appointments", {
-        method: "POST",
-        body: JSON.stringify(dto),
-      });
-      message.success("Cita creada correctamente");
-      await reload();
-      return true;
-    } catch (e) {
-      const msg = e instanceof ApiError ? e.message : "Error al crear cita";
-      message.error(msg);
-      return false;
-    }
-  }, [reload, message]);
-
   const update = useCallback(async (id: number, dto: AppointmentUpdate): Promise<boolean> => {
-    try {
-      await apiFetch(`/api/appointments/${id}`, {
-        method: "PUT",
-        body: JSON.stringify(dto),
-      });
-      message.success("Cita actualizada correctamente");
-      await reload();
-      return true;
-    } catch (e) {
-      const msg = e instanceof ApiError ? e.message : "Error al actualizar cita";
-      message.error(msg);
-      return false;
-    }
-  }, [reload, message]);
+    setLoading(true);
+    await new Promise((r) => setTimeout(r, 350));
+    setItems((prev) => prev.map((c) => (c.id === id ? { ...c, ...dto } : c)));
+    setLoading(false);
+    message.success("Cita actualizada correctamente");
+    return true;
+  }, [message]);
 
   const remove = useCallback(async (id: number): Promise<boolean> => {
-    try {
-      await apiFetch(`/api/appointments/${id}`, { method: "DELETE" });
-      message.success("Cita eliminada correctamente");
-      await reload();
-      return true;
-    } catch (e) {
-      const msg = e instanceof ApiError ? e.message : "Error al eliminar cita";
-      message.error(msg);
-      return false;
-    }
-  }, [reload, message]);
+    setLoading(true);
+    await new Promise((r) => setTimeout(r, 250));
+    setItems((prev) => prev.filter((c) => c.id !== id));
+    setLoading(false);
+    message.success("Cita eliminada correctamente");
+    return true;
+  }, [message]);
 
-  return { items, loading, reload, create, update, remove };
+  const stats = useMemo<AppointmentStats>(() => ({
+    total: items.length,
+    proximas: items.filter((c) => c.estado === "PROGRAMADA" || c.estado === "CONFIRMADA").length,
+    atendidas: items.filter((c) => c.estado === "ATENDIDA").length,
+    canceladas: items.filter((c) => c.estado === "CANCELADA" || c.estado === "NO_SHOW").length,
+  }), [items]);
+
+  return { items, loading, stats, create, update, remove };
 }
